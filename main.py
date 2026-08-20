@@ -168,6 +168,17 @@ def search():
     depart_time_after = _parse_hour_filter(request.form.get("depart_time_after", "").strip())
     return_time_after = _parse_hour_filter(request.form.get("return_time_after", "").strip())
 
+    # 前端用 <input type="date"> 的 min 屬性擋掉不合理的選擇，但那只是體驗上的
+    # 防呆，繞得過去（關掉 JS、直接送表單）。日期是 YYYY-MM-DD 格式，字串
+    # 比較的結果跟日期先後順序一致，不用另外轉成 date 物件比較。
+    if return_date is not None and return_date < depart_date:
+        return render_template(
+            "index.html",
+            flights=None,
+            error="回程日期不能早於出發日期",
+            disclaimer=DISCLAIMER,
+        )
+
     try:
         adults = int(adults_raw)
     except ValueError:

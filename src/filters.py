@@ -113,7 +113,14 @@ def find_cheapest_per_airline(flights: list[dict]) -> list[dict]:
 
 def add_stop_label(flights: list[dict]) -> list[dict]:
     """
-    在每筆航班的 dict 裡，加上一個 stop_label 欄位（"直達"／"轉機一次"...）。
+    在每筆航班的 dict 裡加上人看得懂的轉機標籤（"直達"／"轉機一次"...）。
+
+    單程：在最外層加 stop_label。
+
+    來回：使用者關心的是「去程」跟「回程」分別是不是直達，不是兩段
+    加總的轉機次數（加總的話，去程直達+回程轉機一次，會混成看不出
+    是哪一段轉機），所以分別在 outbound、return 底下各自加一個
+    stop_label。
 
     不修改原本的 flights list，回傳一份新的 list，
     避免呼叫者不小心依賴到「這個函式會動到原本資料」這種副作用。
@@ -121,6 +128,14 @@ def add_stop_label(flights: list[dict]) -> list[dict]:
     output = []
     for flight in flights:
         new_flight = dict(flight)
-        new_flight["stop_label"] = classify_stops(flight["stop_count"])
+        if _is_round_trip(new_flight):
+            new_flight["outbound"] = dict(flight["outbound"])
+            new_flight["outbound"]["stop_label"] = classify_stops(
+                flight["outbound"]["stop_count"]
+            )
+            new_flight["return"] = dict(flight["return"])
+            new_flight["return"]["stop_label"] = classify_stops(flight["return"]["stop_count"])
+        else:
+            new_flight["stop_label"] = classify_stops(flight["stop_count"])
         output.append(new_flight)
     return output
