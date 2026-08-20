@@ -143,6 +143,13 @@ def _get_price_rank_safe(
         return None
 
 
+@app.route("/ping", methods=["GET"])
+def ping():
+    """給 uptime 監控服務（如 UptimeRobot）定期呼叫，讓 Render 免費層的
+    服務不要因為閒置太久被自動休眠。不做任何查詢或運算，純粹回應。"""
+    return "ok", 200
+
+
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html", flights=None, error=None, disclaimer=DISCLAIMER)
