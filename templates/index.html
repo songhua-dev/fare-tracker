@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>Fare Tracker 機票比價</title>
+</head>
+<body>
+    <h1>機票比價</h1>
+
+    <form method="POST" action="/search">
+        出發地機場代碼：<input name="origin" placeholder="TPE" required><br>
+        目的地機場代碼：<input name="destination" placeholder="NRT" required><br>
+        出發日期：<input name="depart_date" type="date" required><br>
+        回程日期（單程留空）：<input name="return_date" type="date"><br>
+        人數：<input name="adults" type="number" value="1" min="1"><br>
+        <button type="submit">查詢</button>
+    </form>
+
+    {% if error %}
+        <p style="color:red;">錯誤：{{ error }}</p>
+    {% endif %}
+
+    {% if flights is not none %}
+
+        {% if flights|length == 0 %}
+            <p>查無航班結果。</p>
+        {% else %}
+
+            <h2>每家航空公司最便宜的一筆</h2>
+            <ul>
+            {% for flight in cheapest_per_airline %}
+                {% if is_round_trip %}
+                    <li>
+                        {{ flight.outbound.airline_name_zh }}（{{ flight.outbound.airline_code }}）
+                        — {{ flight.price }} {{ flight.currency }}
+                        — 去程 {{ flight.outbound.stop_count }} 轉機，回程 {{ flight.return.stop_count }} 轉機
+                        {% if flight.outbound.booking_url %}
+                            — <a href="{{ flight.outbound.booking_url }}" target="_blank">訂票</a>
+                        {% else %}
+                            — 請自行搜尋航空公司官網訂票
+                        {% endif %}
+                    </li>
+                {% else %}
+                    <li>
+                        {{ flight.airline_name_zh }}（{{ flight.airline_code }}）
+                        — {{ flight.price }} {{ flight.currency }}
+                        — {{ flight.stop_label }}
+                        — 飛行時間 {{ flight.flight_duration_min }} 分鐘
+                        {% if flight.booking_url %}
+                            — <a href="{{ flight.booking_url }}" target="_blank">訂票</a>
+                        {% else %}
+                            — 請自行搜尋航空公司官網訂票
+                        {% endif %}
+                    </li>
+                {% endif %}
+            {% endfor %}
+            </ul>
+
+            <h2>全部結果（依價格排序）</h2>
+            <ul>
+            {% for flight in flights %}
+                {% if is_round_trip %}
+                    <li>
+                        {{ flight.price }} {{ flight.currency }}
+                        — 去：{{ flight.outbound.airline_name_zh }}（{{ flight.outbound.depart_time }}）
+                        — 回：{{ flight.return.airline_name_zh }}（{{ flight.return.depart_time }}）
+                    </li>
+                {% else %}
+                    <li>
+                        {{ flight.price }} {{ flight.currency }}
+                        — {{ flight.airline_name_zh }}
+                        — {{ flight.stop_label }}
+                        — {{ flight.depart_time }} 出發
+                    </li>
+                {% endif %}
+            {% endfor %}
+            </ul>
+
+        {% endif %}
+
+    {% endif %}
+
+    <hr>
+    <p><small>{{ disclaimer }}</small></p>
+</body>
+</html>

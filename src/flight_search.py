@@ -5,10 +5,7 @@ src/flight_search.py
 不做任何篩選/分類邏輯——那些邏輯放在 src/filters.py。
 """
 
-import csv
 import time
-from pathlib import Path
-
 from fli.models import (
     Airport,
     FlightSearchFilters,
@@ -19,18 +16,9 @@ from fli.models import (
     TripType,
 )
 from fli.search import SearchFlights
+from src.csv_reader import get_valid_airport_codes
 
-# data/airports.csv 由 scripts/export_airports.py 產生，
-# 內容是 fli 內建 Airport enum 的完整清單，用來驗證使用者輸入的機場代碼。
-AIRPORTS_CSV_PATH = Path(__file__).resolve().parent.parent / "data" / "airports.csv"
-
-
-def _load_valid_airport_codes() -> set[str]:
-    with open(AIRPORTS_CSV_PATH, encoding="utf-8") as f:
-        return {row["code"] for row in csv.DictReader(f)}
-
-
-VALID_AIRPORT_CODES = _load_valid_airport_codes()
+VALID_AIRPORT_CODES = get_valid_airport_codes()
 
 
 def _validate_airport_code(code: str) -> str:
