@@ -11,7 +11,21 @@
         出發地機場代碼：<input name="origin" placeholder="TPE" required><br>
         目的地機場代碼：<input name="destination" placeholder="NRT" required><br>
         出發日期：<input name="depart_date" type="date" required><br>
+        去程時間（選填）：
+        <select name="depart_time_after">
+            <option value="">查詢整日</option>
+            {% for h in range(24) %}
+            <option value="{{ h }}">{{ "%02d:00"|format(h) }} 後</option>
+            {% endfor %}
+        </select><br>
         回程日期（單程留空）：<input name="return_date" type="date"><br>
+        回程時間（選填）：
+        <select name="return_time_after">
+            <option value="">查詢整日</option>
+            {% for h in range(24) %}
+            <option value="{{ h }}">{{ "%02d:00"|format(h) }} 後</option>
+            {% endfor %}
+        </select><br>
         人數：<input name="adults" type="number" value="1" min="1"><br>
         <button type="submit">查詢</button>
     </form>
@@ -64,6 +78,9 @@
                         {{ flight.price }} {{ flight.currency }}
                         — 去：{{ flight.outbound.airline_name_zh }}（{{ flight.outbound.depart_time }}）
                         — 回：{{ flight.return.airline_name_zh }}（{{ flight.return.depart_time }}）
+                        {% if loop.first and price_rank %}
+                            — <strong>{{ price_rank.total_records }}筆中第{{ price_rank.rank_from_bottom }}低</strong>
+                        {% endif %}
                     </li>
                 {% else %}
                     <li>
@@ -71,6 +88,9 @@
                         — {{ flight.airline_name_zh }}
                         — {{ flight.stop_label }}
                         — {{ flight.depart_time }} 出發
+                        {% if loop.first and price_rank %}
+                            — <strong>{{ price_rank.total_records }}筆中第{{ price_rank.rank_from_bottom }}低</strong>
+                        {% endif %}
                     </li>
                 {% endif %}
             {% endfor %}

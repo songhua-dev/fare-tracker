@@ -53,6 +53,32 @@ def filter_by_max_price(flights: list[dict], max_price: float) -> list[dict]:
     return [f for f in flights if f["price"] <= max_price]
 
 
+def filter_by_depart_time_after(flights: list[dict], hour: int) -> list[dict]:
+    """
+    只留下「出發時間的小時 >= hour」的航班，對應使用者選的『去程時間』篩選。
+
+    單程直接看最外層的 depart_time；來回票看 outbound（去程段）的
+    depart_time —— 使用者選的「去程時間」本來就是針對去程那一段的
+    起飛時間，跟回程無關。
+    """
+    result = []
+    for flight in flights:
+        leg = flight["outbound"] if _is_round_trip(flight) else flight
+        if leg["depart_time"].hour >= hour:
+            result.append(flight)
+    return result
+
+
+def filter_by_return_time_after(flights: list[dict], hour: int) -> list[dict]:
+    """
+    只留下「回程出發時間的小時 >= hour」的航班，對應使用者選的『回程時間』篩選。
+
+    只適用於來回票——呼叫方應該只在確定是來回票（return_date 有值）
+    時才呼叫這支函式，單程資料沒有 "return" 這個欄位，呼叫下去會出錯。
+    """
+    return [f for f in flights if f["return"]["depart_time"].hour >= hour]
+
+
 def find_cheapest(flights: list[dict]) -> dict | None:
     """
     從一堆航班結果裡，找出價格最低的那一筆。
