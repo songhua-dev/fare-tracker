@@ -21,7 +21,7 @@ from flask import Flask, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from src import db
-from src.csv_reader import get_airline_name_zh, get_airline_website
+from src.csv_reader import get_airline_name_zh, get_airline_website, search_airports_by_keyword
 from src.filters import (
     add_stop_label,
     filter_by_depart_time_after,
@@ -148,6 +148,23 @@ def ping():
     """給 uptime 監控服務（如 UptimeRobot）定期呼叫，讓 Render 免費層的
     服務不要因為閒置太久被自動休眠。不做任何查詢或運算，純粹回應。"""
     return "ok", 200
+
+
+@app.route("/api/airports", methods=["GET"])
+def api_airports():
+    """
+    給前端機場 autocomplete 用的查詢端點，回傳 JSON。
+
+    這裡刻意不套用搜尋冷卻機制（_check_and_update_cooldown）——那是
+    針對 /search 這種會觸發 fli 查詢 Google Flights、有實際成本/風險
+    的動作設計的節流機制。機場查詢只是查記憶體裡的 dict，成本趨近於
+    零，使用者打字時每個字都可能觸發一次請求，套用 7 秒冷卻反而會讓
+    autocomplete 整個不能用。
+    """
+    query = request.args.get("q", "").strip()
+    if not query:
+        return {"airports": []}
+    return {"airports": search_airports_by_keyword(query)}
 
 
 @app.route("/", methods=["GET"])

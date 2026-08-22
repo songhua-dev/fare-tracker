@@ -85,6 +85,8 @@ python --version
 
 如果你想直接打開專案資料夾檢視程式碼，可以裝 [Visual Studio Code](https://code.visualstudio.com/)（免費）。這一步不是執行程式的必要條件，純粹方便你瀏覽/編輯檔案。
 
+打開專案資料夾後，可以用內建終端機執行後面步驟的指令，不用另外開系統的終端機程式：按 `` Ctrl+` ``（Esc 鍵下方那個反引號鍵）就會在下方開啟終端機面板，之後的 `pip install`、`python main.py` 等指令都可以直接在這裡輸入。
+
 ### 3. Clone 專案
 
 如果你有裝 Git，在終端機輸入：
@@ -129,7 +131,9 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-### 6. 建立自己的 Neon 資料庫
+### 6. 建立自己的 Neon 資料庫（選用）
+
+> **這一步可以跳過。** 如果你懶得申請資料庫，或只是想先看看比價功能能不能動，直接跳到「8. 執行」也完全沒問題——程式偵測不到資料庫設定時，會自動跳過歷史紀錄寫入跟歷史低價標示這兩個功能，比價查詢本身照樣正常運作，不會報錯或卡住。之後想要「歷史低價」這個功能了，隨時回來做這一步跟下一步（建立 `.env`）就可以補上。
 
 這個專案的歷史低價功能需要一個 PostgreSQL 資料庫，本專案使用 [Neon](https://neon.tech)（有免費方案，不需要信用卡）。
 
@@ -139,7 +143,7 @@ pip install -r requirements.txt
 4. 打開這個專案根目錄的 `schema.sql` 檔案，複製全部內容，貼到 SQL Editor 裡執行一次（這會建立兩張表：`searches` 跟 `flight_results`）
 5. 回到 Project 首頁，找到你的 **connection string**（長得像 `postgresql://user:password@ep-xxxx.region.aws.neon.tech/dbname?sslmode=require`），複製下來
 
-### 7. 建立 `.env` 檔案
+### 7. 建立 `.env` 檔案（選用，跳過第 6 步的話這步也一併跳過）
 
 在專案根目錄（跟 `main.py` 同一層）建立一個叫 `.env` 的檔案，內容是：
 
@@ -173,6 +177,16 @@ http://127.0.0.1:5000
 - Some ultra-cheap results may be self-transfer itineraries (e.g. two separately-booked legs with a layover you have to manage yourself) rather than a single airline-coordinated connection — always check the stop label and verify booking details before assuming a "cheapest" result is a simple, single-ticket itinerary.
 
 > **中文摘要**：資料源是逆向工程套件，Google 改版可能會壞掉，沒有任何保證；歷史低價功能要累積滿50筆同航線資料才會顯示排名；搜尋冷卻機制存在記憶體，伺服器重啟會重置；有些超便宜的結果可能是「自己接的轉機」（分開訂票、自己處理轉機），不是航空公司安排好的單一行程，訂票前務必自己再確認清楚。
+
+## If `fli` Stops Working
+
+Since `fli` is an unofficial, reverse-engineered client, it can break without warning whenever Google changes their internal API. If flight searches suddenly start failing:
+
+1. Check the [`fli` GitHub repo](https://github.com/punitarani/fli) for open issues — if Google changed something, other users have likely already reported it there.
+2. Try upgrading to the latest version: `pip install --upgrade flights`
+3. If there's no fix available yet, this is an inherent risk of relying on an unofficial API — there's no guaranteed timeline for a fix, and in the meantime the search feature simply won't work until either `fli` is patched or you find an alternative data source.
+
+> **中文摘要**：`fli` 是逆向工程套件，Google 隨時可能改版讓它失效。遇到查詢突然失敗時：先去 `fli` 的 GitHub repo 看有沒有其他人回報同樣問題（有的話通常會有討論或修復進度）；試試看 `pip install --upgrade flights` 升級到最新版本；如果暫時沒有修復版本，這是依賴非官方 API 的固有風險，沒有保證的修復時程，這段期間查詢功能就是無法使用，除非等到 `fli` 修好或找到替代資料源。
 
 ## License
 

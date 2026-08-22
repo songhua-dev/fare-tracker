@@ -1,0 +1,441 @@
+/* ==========================================================================
+   Fare Tracker — 樣式表
+   設計概念：機場資訊看板。等寬字體處理價格/時間/代碼，
+   琥珀色只用在「歷史低價」標記上，其餘保持安靜、不搶焦點。
+   ========================================================================== */
+
+:root {
+    /* 色票 */
+    --paper: #FAFAF6;
+    --paper-raised: #FFFFFF;
+    --ink: #1B211F;
+    --ink-soft: #5C6B67;
+    --line: #DCD9CE;
+    --teal: #204B4F;
+    --teal-dark: #163538;
+    --amber: #E8A33D;
+    --amber-ink: #4A3210;
+    --red: #B3432B;
+
+    /* 字體 */
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
+                 "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono",
+                 Consolas, monospace;
+
+    /* 間距 / 造型 */
+    --radius: 6px;
+    --radius-sm: 4px;
+    --shadow: 0 1px 3px rgba(27, 33, 31, 0.08), 0 1px 2px rgba(27, 33, 31, 0.06);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+.page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 20px 64px;
+}
+
+/* ------------------------------------------------------------------------
+   標頭
+   ------------------------------------------------------------------------ */
+
+.site-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--ink);
+}
+
+
+.site-header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.01em;
+}
+
+
+/* ------------------------------------------------------------------------
+   搜尋表單卡片
+   ------------------------------------------------------------------------ */
+
+.search-card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    margin-bottom: 32px;
+}
+
+.field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.field-row.field-row--three {
+    grid-template-columns: 1fr 1fr 90px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+}
+
+.field input,
+.field select {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 9px 10px;
+    width: 100%;
+}
+
+.field input::placeholder {
+    color: #A8A399;
+}
+
+.field input:focus,
+.field select:focus {
+    outline: 2px solid var(--teal);
+    outline-offset: 1px;
+    border-color: var(--teal);
+}
+
+.submit-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+button[type="submit"] {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--paper);
+    background: var(--teal);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 11px 24px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+button[type="submit"]:hover {
+    background: var(--teal-dark);
+}
+
+button[type="submit"]:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+}
+
+button[type="submit"]:disabled {
+    background: var(--ink-soft);
+    cursor: not-allowed;
+}
+
+/* 機場自動完成下拉（JS 動態顯示/隱藏） -------------------------------- */
+
+.field-with-suggestions {
+    position: relative;
+}
+
+.airport-suggestions {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+    max-height: 240px;
+    overflow-y: auto;
+    z-index: 10;
+    list-style: none;
+    margin: 0;
+    padding: 4px;
+}
+
+.airport-suggestions.is-open {
+    display: block;
+}
+
+.airport-suggestions li {
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.airport-suggestions li:hover,
+.airport-suggestions li.is-active {
+    background: var(--paper);
+}
+
+.airport-suggestions .code {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--teal);
+}
+
+.airport-suggestions .empty {
+    padding: 8px 10px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    cursor: default;
+}
+
+/* ------------------------------------------------------------------------
+   錯誤 / 提示
+   ------------------------------------------------------------------------ */
+
+.error-banner {
+    background: #FBEAE4;
+    border: 1px solid var(--red);
+    color: var(--red);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 14px;
+    margin-bottom: 24px;
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--ink-soft);
+    padding: 32px 0;
+    font-size: 14px;
+}
+
+/* ------------------------------------------------------------------------
+   結果區塊共用標題
+   ------------------------------------------------------------------------ */
+
+.section-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    margin: 32px 0 12px;
+}
+
+/* ------------------------------------------------------------------------
+   每家航空最便宜（橫向卡片）
+   ------------------------------------------------------------------------ */
+
+.airline-best-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+}
+
+.airline-best-card {
+    flex: 1 1 200px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+}
+
+.airline-best-card .airline-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.airline-best-card .price {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--teal);
+}
+
+.airline-best-card .meta {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+}
+
+.airline-best-card .booking-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--teal);
+    text-decoration: none;
+    border-bottom: 1px solid var(--teal);
+}
+
+.airline-best-card .booking-link:hover {
+    color: var(--teal-dark);
+    border-color: var(--teal-dark);
+}
+
+.airline-best-card .no-booking {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------------------
+   全部結果列表
+   ------------------------------------------------------------------------ */
+
+.flight-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.flight-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+}
+
+.flight-card .price {
+    font-family: var(--font-mono);
+    font-size: 17px;
+    font-weight: 700;
+    min-width: 108px;
+}
+
+.flight-card .legs {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+    color: var(--ink);
+}
+
+.flight-card .legs .leg-label {
+    color: var(--ink-soft);
+    font-weight: 600;
+    margin-right: 4px;
+}
+
+.flight-card .legs .time {
+    font-family: var(--font-mono);
+}
+
+.flight-card .duration {
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+}
+
+/* 歷史低價徽章：整個版面唯一的搶眼元素 */
+.price-rank-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--amber);
+    color: var(--amber-ink);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 4px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.price-rank-badge::before {
+    content: "\25C6"; /* ◆ */
+    font-size: 9px;
+}
+
+/* ------------------------------------------------------------------------
+   Footer
+   ------------------------------------------------------------------------ */
+
+.site-footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------------------
+   Responsive — 手機
+   ------------------------------------------------------------------------ */
+
+@media (max-width: 560px) {
+    .page {
+        padding: 16px 14px 48px;
+    }
+
+    .field-row,
+    .field-row.field-row--three {
+        grid-template-columns: 1fr;
+    }
+
+    .site-header .sub {
+        display: none;
+    }
+
+    .flight-card {
+        flex-wrap: wrap;
+    }
+
+    .flight-card .price {
+        min-width: auto;
+    }
+
+    .airline-best-card {
+        flex: 1 1 100%;
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+    }
+}
