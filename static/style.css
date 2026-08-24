@@ -49,18 +49,21 @@ body {
 }
 
 /* ------------------------------------------------------------------------
-   標頭
+   標頭與語言切換
    ------------------------------------------------------------------------ */
 
 .site-header {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
     margin-bottom: 28px;
     padding-bottom: 16px;
     border-bottom: 2px solid var(--ink);
 }
 
+.site-header .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
 
 .site-header h1 {
     font-size: 20px;
@@ -69,6 +72,32 @@ body {
     letter-spacing: 0.01em;
 }
 
+.lang-switch {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.lang-switch a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding: 2px 4px;
+    transition: color 0.15s ease;
+}
+
+.lang-switch a:hover {
+    color: var(--teal);
+}
+
+.lang-switch a.active {
+    color: var(--teal);
+    font-weight: 700;
+    border-bottom: 2px solid var(--teal);
+}
+
+.lang-switch .divider {
+    color: var(--line);
+    margin: 0 4px;
+}
 
 /* ------------------------------------------------------------------------
    搜尋表單卡片
@@ -254,7 +283,7 @@ button[type="submit"]:disabled {
 }
 
 /* ------------------------------------------------------------------------
-   每家航空最便宜（橫向卡片）
+   每家航空公司最便宜（橫向卡片）
    ------------------------------------------------------------------------ */
 
 .airline-best-list {
@@ -416,8 +445,10 @@ button[type="submit"]:disabled {
         grid-template-columns: 1fr;
     }
 
-    .site-header .sub {
-        display: none;
+    .site-header .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
     }
 
     .flight-card {

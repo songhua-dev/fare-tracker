@@ -1,44 +1,52 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="{{ current_lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Fare Tracker 機票比價</title>
+    <title>{{ _('site_title') }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <div class="page">
 
     <header class="site-header">
-        <h1>Fare Tracker 機票比價</h1>
+        <div class="header-content">
+            <h1>{{ _('site_title') }}</h1>
+            <div class="lang-switch">
+                <a href="{{ url_for('index', lang='zh_TW') }}" class="{% if current_lang == 'zh_TW' %}active{% endif %}">繁體中文</a>
+                <span class="divider">|</span>
+                <a href="{{ url_for('index', lang='en_US') }}" class="{% if current_lang == 'en_US' %}active{% endif %}">English</a>
+            </div>
+        </div>
     </header>
 
-    <form method="POST" action="/search" class="search-card">
+    <form method="POST" action="/search?lang={{ current_lang }}" class="search-card">
+        <input type="hidden" name="lang" value="{{ current_lang }}">
 
         <div class="field-row">
             <div class="field field-with-suggestions">
-                <label for="origin">出發地機場代碼</label>
-                <input name="origin" id="origin" placeholder="TPE 或輸入城市名" required autocomplete="off">
+                <label for="origin">{{ _('label_origin') }}</label>
+                <input name="origin" id="origin" placeholder="{{ _('placeholder_origin') }}" required autocomplete="off">
                 <ul class="airport-suggestions" id="origin_suggestions"></ul>
             </div>
             <div class="field field-with-suggestions">
-                <label for="destination">目的地機場代碼</label>
-                <input name="destination" id="destination" placeholder="NRT 或輸入城市名" required autocomplete="off">
+                <label for="destination">{{ _('label_destination') }}</label>
+                <input name="destination" id="destination" placeholder="{{ _('placeholder_destination') }}" required autocomplete="off">
                 <ul class="airport-suggestions" id="destination_suggestions"></ul>
             </div>
         </div>
 
         <div class="field-row">
             <div class="field">
-                <label for="depart_date">出發日期</label>
+                <label for="depart_date">{{ _('label_depart_date') }}</label>
                 <input name="depart_date" id="depart_date" type="date" required>
             </div>
             <div class="field">
-                <label for="depart_time_after">去程時間（選填）</label>
+                <label for="depart_time_after">{{ _('label_depart_time_after') }}</label>
                 <select name="depart_time_after" id="depart_time_after">
-                    <option value="">查詢整日</option>
+                    <option value="">{{ _('option_all_day') }}</option>
                     {% for h in range(24) %}
-                    <option value="{{ h }}">{{ "%02d:00"|format(h) }} 後</option>
+                    <option value="{{ h }}">{{ _('option_after_hour', hour="%02d:00"|format(h)) }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -46,15 +54,15 @@
 
         <div class="field-row">
             <div class="field">
-                <label for="return_date">回程日期（單程留空）</label>
+                <label for="return_date">{{ _('label_return_date') }}</label>
                 <input name="return_date" id="return_date" type="date">
             </div>
             <div class="field">
-                <label for="return_time_after">回程時間（選填）</label>
+                <label for="return_time_after">{{ _('label_return_time_after') }}</label>
                 <select name="return_time_after" id="return_time_after">
-                    <option value="">查詢整日</option>
+                    <option value="">{{ _('option_all_day') }}</option>
                     {% for h in range(24) %}
-                    <option value="{{ h }}">{{ "%02d:00"|format(h) }} 後</option>
+                    <option value="{{ h }}">{{ _('option_after_hour', hour="%02d:00"|format(h)) }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -62,67 +70,67 @@
 
         <div class="field-row">
             <div class="field" style="max-width: 140px;">
-                <label for="adults">人數</label>
+                <label for="adults">{{ _('label_adults') }}</label>
                 <input name="adults" id="adults" type="number" value="1" min="1">
             </div>
         </div>
 
         <div class="submit-row">
-            <button type="submit">查詢</button>
+            <button type="submit">{{ _('btn_search') }}</button>
         </div>
     </form>
 
     {% if error %}
-        <div class="error-banner">錯誤：{{ error }}</div>
+        <div class="error-banner">{{ _('error_prefix') }}{{ error }}</div>
     {% endif %}
 
     {% if flights is not none %}
 
         {% if flights|length == 0 %}
-            <p class="empty-state">查無航班結果。</p>
+            <p class="empty-state">{{ _('empty_results') }}</p>
         {% else %}
 
-            <h2 class="section-title">每家航空公司最便宜</h2>
+            <h2 class="section-title">{{ _('title_cheapest_per_airline') }}</h2>
             <ul class="airline-best-list">
             {% for flight in cheapest_per_airline %}
                 {% if is_round_trip %}
                     <li class="airline-best-card">
                         <div class="airline-name">{{ flight.outbound.airline_name_zh }}（{{ flight.outbound.airline_code }}）</div>
                         <div class="price">{{ flight.price }} {{ flight.currency }}</div>
-                        <div class="meta">去程{{ flight.outbound.stop_label }}，回程{{ flight.return.stop_label }}</div>
+                        <div class="meta">{{ _('meta_outbound_stop', stop=flight.outbound.stop_label) }}，{{ _('meta_return_stop', stop=flight.return.stop_label) }}</div>
                         {% if flight.outbound.booking_url %}
-                            <a href="{{ flight.outbound.booking_url }}" target="_blank" class="booking-link">訂票</a>
+                            <a href="{{ flight.outbound.booking_url }}" target="_blank" class="booking-link">{{ _('btn_book') }}</a>
                         {% else %}
-                            <span class="no-booking">請自行搜尋航空公司官網訂票</span>
+                            <span class="no-booking">{{ _('no_booking_url') }}</span>
                         {% endif %}
                     </li>
                 {% else %}
                     <li class="airline-best-card">
                         <div class="airline-name">{{ flight.airline_name_zh }}（{{ flight.airline_code }}）</div>
                         <div class="price">{{ flight.price }} {{ flight.currency }}</div>
-                        <div class="meta">{{ flight.stop_label }} · 飛行時間 {{ flight.flight_duration_min }} 分鐘</div>
+                        <div class="meta">{{ flight.stop_label }} · {{ _('flight_duration', minutes=flight.flight_duration_min) }}</div>
                         {% if flight.booking_url %}
-                            <a href="{{ flight.booking_url }}" target="_blank" class="booking-link">訂票</a>
+                            <a href="{{ flight.booking_url }}" target="_blank" class="booking-link">{{ _('btn_book') }}</a>
                         {% else %}
-                            <span class="no-booking">請自行搜尋航空公司官網訂票</span>
+                            <span class="no-booking">{{ _('no_booking_url') }}</span>
                         {% endif %}
                     </li>
                 {% endif %}
             {% endfor %}
             </ul>
 
-            <h2 class="section-title">全部結果（依價格排序）</h2>
+            <h2 class="section-title">{{ _('title_all_results') }}</h2>
             <ul class="flight-list">
             {% for flight in flights %}
                 {% if is_round_trip %}
                     <li class="flight-card">
                         <div class="price">{{ flight.price }} {{ flight.currency }}</div>
                         <div class="legs">
-                            <div><span class="leg-label">去</span>{{ flight.outbound.airline_name_zh }}（<span class="time">{{ flight.outbound.depart_time }}</span>，{{ flight.outbound.stop_label }}）</div>
-                            <div><span class="leg-label">回</span>{{ flight.return.airline_name_zh }}（<span class="time">{{ flight.return.depart_time }}</span>，{{ flight.return.stop_label }}）</div>
+                            <div><span class="leg-label">{{ _('tag_outbound') }}</span>{{ flight.outbound.airline_name_zh }}（<span class="time">{{ flight.outbound.depart_time }}</span>，{{ flight.outbound.stop_label }}）</div>
+                            <div><span class="leg-label">{{ _('tag_return') }}</span>{{ flight.return.airline_name_zh }}（<span class="time">{{ flight.return.depart_time }}</span>，{{ flight.return.stop_label }}）</div>
                         </div>
                         {% if loop.first and price_rank %}
-                            <span class="price-rank-badge">{{ price_rank.total_records }}筆中第{{ price_rank.rank_from_bottom }}低</span>
+                            <span class="price-rank-badge">{{ _('price_rank_badge', total=price_rank.total_records, rank=price_rank.rank_from_bottom) }}</span>
                         {% endif %}
                     </li>
                 {% else %}
@@ -130,10 +138,10 @@
                         <div class="price">{{ flight.price }} {{ flight.currency }}</div>
                         <div class="legs">
                             <div>{{ flight.airline_name_zh }} · {{ flight.stop_label }}</div>
-                            <div class="time">{{ flight.depart_time }} 出發</div>
+                            <div class="time">{{ _('depart_time_format', time=flight.depart_time) }}</div>
                         </div>
                         {% if loop.first and price_rank %}
-                            <span class="price-rank-badge">{{ price_rank.total_records }}筆中第{{ price_rank.rank_from_bottom }}低</span>
+                            <span class="price-rank-badge">{{ _('price_rank_badge', total=price_rank.total_records, rank=price_rank.rank_from_bottom) }}</span>
                         {% endif %}
                     </li>
                 {% endif %}
@@ -148,6 +156,9 @@
 
 </div>
 
+<script>
+    window.CURRENT_LANG = "{{ current_lang }}";
+</script>
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

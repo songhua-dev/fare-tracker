@@ -17,6 +17,7 @@ from fli.models import (
 )
 from fli.search import SearchFlights
 from src.csv_reader import get_valid_airport_codes
+from src.i18n import _
 
 VALID_AIRPORT_CODES = get_valid_airport_codes()
 
@@ -25,7 +26,7 @@ def _validate_airport_code(code: str) -> str:
     """檢查機場代碼是否存在於 fli 支援的清單裡，不合法就丟出清楚的錯誤訊息。"""
     code = code.upper()
     if code not in VALID_AIRPORT_CODES:
-        raise ValueError(f"輸入機場錯誤: '{code}' 不是有效的機場代碼")
+        raise ValueError(_("invalid_airport_code", code=code))
     return code
 
 

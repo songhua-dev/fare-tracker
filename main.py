@@ -1,27 +1,14 @@
 """
 main.py
-
-Flask 進入點：接表單 -> 呼叫 flight_search 查航班 -> 寫入 Neon（完整未篩選結果）
--> 套用去程/回程時間篩選 -> filters 處理 -> csv_reader 補訂票連結/中文名稱
--> 查歷史低價排名 -> 顯示結果。
-
-資料庫（Neon）是加值功能，不是核心流程的必要條件：寫入、查排名
-任何一步失敗（例如額度用完、連線問題），都只印警告訊息、不中斷
-使用者的查詢流程，頁面照樣正常顯示比價結果。
-
-歷史紀錄寫入的時間點刻意選在「時間篩選之前」：不管使用者有沒有篩
-出發時間，只要查到結果就整批存進 Neon，這樣歷史低價統計的樣本才會
-完整，不會因為某次查詢剛好篩掉早班機，就漏記那些其實真實存在的
-市場報價。
 """
 
 import time
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from src import db
-from src.csv_reader import get_airline_name_zh, get_airline_website, search_airports_by_keyword
+from src.csv_reader import get_airline_display_name, get_airline_website, search_airports_by_keyword
 from src.filters import (
     add_stop_label,
     filter_by_depart_time_after,
@@ -29,33 +16,25 @@ from src.filters import (
     find_cheapest_per_airline,
 )
 from src.flight_search import search_cheapest
+from src.i18n import get_text
 
 app = Flask(__name__)
 
-# Render（以及大多數雲端平台）是把 app 放在反向代理後面，Flask 直接拿到的
-# request.remote_addr 會是代理伺服器的 IP，不是使用者真實 IP。ProxyFix 會
-# 讀取 X-Forwarded-For 這個標頭，把 request.remote_addr 修正成真實使用者 IP。
-# x_for=1 代表「信任一層代理」——本機開發沒有代理時，沒有這個標頭，
-# ProxyFix 會直接維持原本的 remote_addr，不會出錯。
+# 從 request 取得當前語系，並注入 Jinja2 樣板
+@app.context_processor
+def inject_i18n():
+    current_lang = request.args.get("lang") or request.form.get("lang") or "zh_TW"
+    def _(key, **kwargs):
+        return get_text(key, lang=current_lang, **kwargs)
+    return dict(_=_, current_lang=current_lang)
+
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 
-DISCLAIMER = "本頁價格僅供參考，實際訂票請以航空公司或訂票平台當下顯示金額為準。"
-
-# --- 每人 7 秒搜尋冷卻 ---
-# 存在記憶體字典裡，不是資料庫：Render 免費層閒置重啟會清空這份記錄，
-# 影響只是冷卻機制重置（使用者少等一次 7 秒），不是嚴重問題，先不用
-# 為了這個去綁定 db.py。
 SEARCH_COOLDOWN_SECONDS = 7
 _last_search_time: dict[str, float] = {}
 
 
 def _check_and_update_cooldown(client_ip: str) -> float:
-    """
-    檢查這個 IP 是否還在冷卻中。
-
-    回傳還要等待的秒數；0 代表可以搜尋（並且會順便更新這個 IP 的
-    最後搜尋時間戳記，视为「這次搜尋已發生」）。
-    """
     now = time.time()
     last_time = _last_search_time.get(client_ip, 0)
     elapsed = now - last_time
@@ -68,14 +47,6 @@ def _check_and_update_cooldown(client_ip: str) -> float:
 
 
 def _parse_hour_filter(raw: str) -> int | None:
-    """
-    把表單傳來的時間篩選欄位（下拉選單的 value，"" 或 "0"~"23"）轉成
-    int，"" 或轉換失敗都回傳 None（等同「查詢整日，不篩」）。
-
-    轉換失敗理論上不該發生（下拉選單的 value 是我們自己在樣板裡定義的
-    固定值），這裡加防呆只是避免有人繞過前端直接送奇怪的表單內容時，
-    程式會直接噴 500 錯誤。
-    """
     if not raw:
         return None
     try:
@@ -84,24 +55,24 @@ def _parse_hour_filter(raw: str) -> int | None:
         return None
 
 
-def _enrich_leg(leg: dict) -> dict:
-    """幫一段航班（單程航班本身，或來回票裡的 outbound / return）
-    補上中文名稱與訂票連結。booking_url 查不到就是 None，交給樣板
-    去顯示「請自行搜尋官網」這種通用文字。"""
+def _enrich_leg(leg: dict, lang: str) -> dict:
     enriched = dict(leg)
-    enriched["airline_name_zh"] = get_airline_name_zh(leg["airline_code"], leg["airline_name"])
+    enriched["airline_name_zh"] = get_airline_display_name(
+        leg["airline_code"], 
+        leg.get("airline_name", ""), 
+        lang=lang
+    )
     enriched["booking_url"] = get_airline_website(leg["airline_code"])
     return enriched
 
 
-def _enrich_flight(flight: dict) -> dict:
-    """單程是扁平結構，直接補；來回是巢狀結構，outbound/return 各自補一次。"""
+def _enrich_flight(flight: dict, lang: str) -> dict:
     if "outbound" in flight:
         enriched = dict(flight)
-        enriched["outbound"] = _enrich_leg(flight["outbound"])
-        enriched["return"] = _enrich_leg(flight["return"])
+        enriched["outbound"] = _enrich_leg(flight["outbound"], lang)
+        enriched["return"] = _enrich_leg(flight["return"], lang)
         return enriched
-    return _enrich_leg(flight)
+    return _enrich_leg(flight, lang)
 
 
 def _save_search_to_db(
@@ -111,16 +82,6 @@ def _save_search_to_db(
     return_date: str | None,
     flights: list[dict],
 ) -> None:
-    """
-    把這次查詢的完整（未經時間篩選）結果寫進 Neon（searches + flight_results）。
-
-    只有呼叫方確認 flights 非空（查詢真的有結果）才應該呼叫這支函式——
-    查無機場代碼、查無航班這些情況不該寫進歷史資料，避免累積一堆
-    沒有意義的紀錄，之後歷史低價排名的統計會失準。
-
-    任何 DB 相關錯誤都吞掉、印警告訊息，不往外丟例外：寫歷史紀錄
-    失敗不該讓使用者連這次的比價結果都看不到。
-    """
     try:
         search_id = db.insert_search(origin, destination, depart_date, return_date)
         db.insert_flight_results(search_id, flights)
@@ -131,11 +92,6 @@ def _save_search_to_db(
 def _get_price_rank_safe(
     origin: str, destination: str, price: float, is_round_trip: bool
 ) -> dict | None:
-    """
-    db.get_price_rank() 的安全包裝版：DB 查詢失敗時回傳 None，
-    效果等同「這個價格不符合顯示標示的條件」，頁面就不會顯示歷史
-    低價標示，但其他比價結果照樣正常顯示。
-    """
     try:
         return db.get_price_rank(origin, destination, price, is_round_trip)
     except Exception as e:
@@ -145,43 +101,38 @@ def _get_price_rank_safe(
 
 @app.route("/ping", methods=["GET"])
 def ping():
-    """給 uptime 監控服務（如 UptimeRobot）定期呼叫，讓 Render 免費層的
-    服務不要因為閒置太久被自動休眠。不做任何查詢或運算，純粹回應。"""
     return "ok", 200
 
 
 @app.route("/api/airports", methods=["GET"])
 def api_airports():
-    """
-    給前端機場 autocomplete 用的查詢端點，回傳 JSON。
-
-    這裡刻意不套用搜尋冷卻機制（_check_and_update_cooldown）——那是
-    針對 /search 這種會觸發 fli 查詢 Google Flights、有實際成本/風險
-    的動作設計的節流機制。機場查詢只是查記憶體裡的 dict，成本趨近於
-    零，使用者打字時每個字都可能觸發一次請求，套用 7 秒冷卻反而會讓
-    autocomplete 整個不能用。
-    """
     query = request.args.get("q", "").strip()
+    lang = request.args.get("lang", "zh_TW")
     if not query:
         return {"airports": []}
-    return {"airports": search_airports_by_keyword(query)}
+    airports = search_airports_by_keyword(query, lang=lang)
+    return {"airports": airports}
 
 
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html", flights=None, error=None, disclaimer=DISCLAIMER)
+    lang = request.args.get("lang", "zh_TW")
+    return render_template("index.html", flights=None, error=None, disclaimer=get_text("disclaimer", lang=lang))
 
 
 @app.route("/search", methods=["POST"])
 def search():
     client_ip = request.remote_addr
+    # 優先讀取 URL query param，若無則讀取 POST form 中的欄位
+    lang = request.args.get("lang") or request.form.get("lang") or "zh_TW"
+
     wait_seconds = _check_and_update_cooldown(client_ip)
     if wait_seconds > 0:
         return render_template(
             "index.html",
             flights=None,
-            error=f"查詢太頻繁，請等 {wait_seconds} 秒後再試一次",
-            disclaimer=DISCLAIMER,
+            error=get_text("err_cooldown", lang=lang, seconds=wait_seconds),
+            disclaimer=get_text("disclaimer", lang=lang),
         )
 
     origin = request.form.get("origin", "").strip()
@@ -192,22 +143,19 @@ def search():
     depart_time_after = _parse_hour_filter(request.form.get("depart_time_after", "").strip())
     return_time_after = _parse_hour_filter(request.form.get("return_time_after", "").strip())
 
-    # 前端用 <input type="date"> 的 min 屬性擋掉不合理的選擇，但那只是體驗上的
-    # 防呆，繞得過去（關掉 JS、直接送表單）。日期是 YYYY-MM-DD 格式，字串
-    # 比較的結果跟日期先後順序一致，不用另外轉成 date 物件比較。
     if return_date is not None and return_date < depart_date:
         return render_template(
             "index.html",
             flights=None,
-            error="回程日期不能早於出發日期",
-            disclaimer=DISCLAIMER,
+            error=get_text("err_invalid_return_date", lang=lang),
+            disclaimer=get_text("disclaimer", lang=lang),
         )
 
     try:
         adults = int(adults_raw)
     except ValueError:
         return render_template(
-            "index.html", flights=None, error="人數必須是數字", disclaimer=DISCLAIMER
+            "index.html", flights=None, error=get_text("err_invalid_adults", lang=lang), disclaimer=get_text("disclaimer", lang=lang)
         )
 
     try:
@@ -219,35 +167,26 @@ def search():
             return_date=return_date,
         )
     except ValueError as e:
-        # 機場代碼不合法，search_cheapest 丟出的錯誤訊息已經寫得夠清楚，直接顯示
-        # （這種情況不會走到下面的 DB 寫入，因為這裡就 return 掉了）
-        return render_template("index.html", flights=None, error=str(e), disclaimer=DISCLAIMER)
+        return render_template("index.html", flights=None, error=str(e), disclaimer=get_text("disclaimer", lang=lang))
 
     is_round_trip = return_date is not None
-
     price_rank = None
 
     if flights:
-        # 查詢成功才寫入 DB；查無航班（flights 是空 list）不寫，
-        # 避免累積沒有意義的紀錄。寫入的是「完整未篩選」的結果，
-        # 時間篩選只影響畫面顯示，不影響歷史資料的完整性。
         _save_search_to_db(origin, destination, depart_date, return_date, flights)
 
-        # 時間篩選：使用者沒選就是 None，篩選函式就不會被呼叫，等同查詢整日
         if depart_time_after is not None:
             flights = filter_by_depart_time_after(flights, depart_time_after)
         if is_round_trip and return_time_after is not None:
             flights = filter_by_return_time_after(flights, return_time_after)
 
-        # 歷史低價排名：用「篩選後」的最便宜價格去查，這樣頁面上顯示的
-        # 標示才會對應到使用者實際看到的那一筆（flights[0]，因為
-        # search_cheapest() 回傳前已經照價格排序，篩選不會打亂順序）。
         if flights:
             cheapest_price = flights[0]["price"]
             price_rank = _get_price_rank_safe(origin, destination, cheapest_price, is_round_trip)
 
-    flights = add_stop_label(flights)
-    flights = [_enrich_flight(f) for f in flights]
+    # 傳入 lang 參數以精準渲染直達/轉機標籤
+    flights = add_stop_label(flights, lang=lang)
+    flights = [_enrich_flight(f, lang=lang) for f in flights]
 
     cheapest_per_airline = find_cheapest_per_airline(flights)
 
@@ -256,7 +195,7 @@ def search():
         flights=flights,
         cheapest_per_airline=cheapest_per_airline,
         error=None,
-        disclaimer=DISCLAIMER,
+        disclaimer=get_text("disclaimer", lang=lang),
         is_round_trip=is_round_trip,
         price_rank=price_rank,
     )

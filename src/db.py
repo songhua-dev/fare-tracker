@@ -8,7 +8,7 @@ src/db.py
 讓呼叫方（main.py）自己決定要怎麼處理（目前的決定是：main.py 那邊
 用 try/except 包起來，DB 失敗就跳過寫入/跳過歷史排名，不影響核心的
 比價查詢功能）。這樣分工比較清楚：db.py 只管「怎麼跟資料庫講話」，
-「DB 掛了要不要緊」是 main.py 的責任。
+「DB 掛了要不緊」是 main.py 的責任。
 """
 
 import os
@@ -16,6 +16,7 @@ from contextlib import contextmanager
 
 import psycopg2
 from dotenv import load_dotenv
+from src.i18n import _
 
 load_dotenv()
 
@@ -33,9 +34,7 @@ def get_connection():
                 cur.execute(...)
     """
     if not _NEON_URL:
-        raise RuntimeError(
-            "環境變數 NEON_URL 未設定，請檢查本機 .env 或 Render 的環境變數設定"
-        )
+        raise RuntimeError(_("err_neon_url_not_set"))
 
     conn = psycopg2.connect(_NEON_URL)
     try:

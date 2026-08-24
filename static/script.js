@@ -2,8 +2,6 @@
    Fare Tracker — 前端行為
    1. 回程日期 min：不能選比出發日期早的日期
    2. 機場 autocomplete：origin / destination 輸入框打字時查詢機場建議
-      （依賴後端 /api/airports?q= 路由，該路由完成前這段會 fetch 失敗，
-       但不影響表單照常送出查詢，只是沒有下拉建議可選）
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -88,7 +86,14 @@ function setupAirportAutocomplete(inputId) {
 
     async function fetchSuggestions(query) {
         try {
-            const res = await fetch('/api/airports?q=' + encodeURIComponent(query));
+            // 優先讀取 window.CURRENT_LANG，若無則讀取 HTML lang 屬性或 URL 參數
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentLang = window.CURRENT_LANG || document.documentElement.lang || urlParams.get('lang') || 'zh_TW';
+
+            // 帶上 &lang= 參數傳給後端 API
+            const apiUrl = `/api/airports?q=${encodeURIComponent(query)}&lang=${encodeURIComponent(currentLang)}`;
+            const res = await fetch(apiUrl);
+
             if (!res.ok) {
                 closeList();
                 return;
@@ -96,7 +101,6 @@ function setupAirportAutocomplete(inputId) {
             const data = await res.json();
             renderList(data.airports || []);
         } catch (err) {
-            // 後端路由還沒做好，或網路錯誤：安靜失敗，不影響使用者手動輸入代碼
             closeList();
         }
     }
@@ -109,7 +113,8 @@ function setupAirportAutocomplete(inputId) {
         if (airports.length === 0) {
             const li = document.createElement('li');
             li.className = 'empty';
-            li.textContent = '查無符合的機場';
+            const isEn = (document.documentElement.lang || '').startsWith('en');
+            li.textContent = isEn ? 'No matching airports' : '查無符合的機場';
             list.appendChild(li);
             openList();
             return;
@@ -121,7 +126,8 @@ function setupAirportAutocomplete(inputId) {
             li.dataset.index = index;
 
             const nameSpan = document.createElement('span');
-            nameSpan.textContent = airport.name_zh || airport.name_en;
+            // 後端依語系處理後的 name，若無則降級讀取 name_zh 或 name_en
+            nameSpan.textContent = airport.name || airport.name_zh || airport.name_en;
 
             const codeSpan = document.createElement('span');
             codeSpan.className = 'code';

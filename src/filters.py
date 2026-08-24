@@ -9,7 +9,6 @@ flight_search.py 回傳的 dict list，不呼叫任何外部 API。
 這支檔案裡的函式都要能同時處理這兩種結構，用 _get_airline_code() 統一取值。
 """
 
-
 def _is_round_trip(entry: dict) -> bool:
     """判斷這筆資料是來回票（巢狀結構）還是單程（扁平結構）。"""
     return "outbound" in entry
@@ -28,14 +27,15 @@ def _get_airline_code(entry: dict) -> str:
     return entry["airline_code"]
 
 
-def classify_stops(stop_count: int) -> str:
-    """把轉機次數的數字，轉成人看得懂的中文分類。"""
+def classify_stops(stop_count: int, lang: str = "zh_TW") -> str:
+    """把轉機次數的數字，轉成人看得懂的中文/英文分類 (延遲載入 i18n 防循環引用)。"""
+    from src.i18n import _
     if stop_count == 0:
-        return "直達"
+        return _("stop_direct", lang=lang)
     elif stop_count == 1:
-        return "轉機一次"
+        return _("stop_1_transfer", lang=lang)
     else:
-        return f"轉機{stop_count}次"
+        return _("stop_n_transfers", lang=lang, count=stop_count)
 
 
 def filter_direct_only(flights: list[dict]) -> list[dict]:
@@ -64,7 +64,9 @@ def filter_by_depart_time_after(flights: list[dict], hour: int) -> list[dict]:
     result = []
     for flight in flights:
         leg = flight["outbound"] if _is_round_trip(flight) else flight
-        if leg["depart_time"].hour >= hour:
+        # 兼容 datetime 物件與整數小時
+        depart_hour = leg["depart_time"].hour if hasattr(leg["depart_time"], "hour") else leg["depart_time"]
+        if depart_hour >= hour:
             result.append(flight)
     return result
 
@@ -76,7 +78,12 @@ def filter_by_return_time_after(flights: list[dict], hour: int) -> list[dict]:
     只適用於來回票——呼叫方應該只在確定是來回票（return_date 有值）
     時才呼叫這支函式，單程資料沒有 "return" 這個欄位，呼叫下去會出錯。
     """
-    return [f for f in flights if f["return"]["depart_time"].hour >= hour]
+    result = []
+    for flight in flights:
+        return_hour = flight["return"]["depart_time"].hour if hasattr(flight["return"]["depart_time"], "hour") else flight["return"]["depart_time"]
+        if return_hour >= hour:
+            result.append(flight)
+    return result
 
 
 def find_cheapest(flights: list[dict]) -> dict | None:
@@ -111,7 +118,7 @@ def find_cheapest_per_airline(flights: list[dict]) -> list[dict]:
     return result
 
 
-def add_stop_label(flights: list[dict]) -> list[dict]:
+def add_stop_label(flights: list[dict], lang: str = "zh_TW") -> list[dict]:
     """
     在每筆航班的 dict 裡加上人看得懂的轉機標籤（"直達"／"轉機一次"...）。
 
@@ -131,11 +138,13 @@ def add_stop_label(flights: list[dict]) -> list[dict]:
         if _is_round_trip(new_flight):
             new_flight["outbound"] = dict(flight["outbound"])
             new_flight["outbound"]["stop_label"] = classify_stops(
-                flight["outbound"]["stop_count"]
+                flight["outbound"]["stop_count"], lang=lang
             )
             new_flight["return"] = dict(flight["return"])
-            new_flight["return"]["stop_label"] = classify_stops(flight["return"]["stop_count"])
+            new_flight["return"]["stop_label"] = classify_stops(
+                flight["return"]["stop_count"], lang=lang
+            )
         else:
-            new_flight["stop_label"] = classify_stops(flight["stop_count"])
+            new_flight["stop_label"] = classify_stops(flight["stop_count"], lang=lang)
         output.append(new_flight)
     return output
