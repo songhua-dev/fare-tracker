@@ -13,6 +13,7 @@ from src.filters import (
     add_stop_label,
     filter_by_depart_time_after,
     filter_by_return_time_after,
+    filter_direct_only,  # <--- 新增此項
     find_cheapest_per_airline,
 )
 from src.flight_search import search_cheapest
@@ -123,7 +124,6 @@ def index():
 @app.route("/search", methods=["POST"])
 def search():
     client_ip = request.remote_addr
-    # 優先讀取 URL query param，若無則讀取 POST form 中的欄位
     lang = request.args.get("lang") or request.form.get("lang") or "zh_TW"
 
     wait_seconds = _check_and_update_cooldown(client_ip)
@@ -142,6 +142,9 @@ def search():
     adults_raw = request.form.get("adults", "1").strip()
     depart_time_after = _parse_hour_filter(request.form.get("depart_time_after", "").strip())
     return_time_after = _parse_hour_filter(request.form.get("return_time_after", "").strip())
+    
+    # 讀取「僅限直飛」勾選狀態
+    direct_only = request.form.get("direct_only") == "1"
 
     if return_date is not None and return_date < depart_date:
         return render_template(
@@ -165,6 +168,7 @@ def search():
             destination=destination,
             depart_date=depart_date,
             return_date=return_date,
+            direct_only=direct_only,
         )
     except ValueError as e:
         return render_template("index.html", flights=None, error=str(e), disclaimer=get_text("disclaimer", lang=lang))
@@ -175,6 +179,10 @@ def search():
     if flights:
         _save_search_to_db(origin, destination, depart_date, return_date, flights)
 
+        # 若使用者勾選「僅限直飛」，進行篩選
+        if direct_only:
+            flights = filter_direct_only(flights)
+
         if depart_time_after is not None:
             flights = filter_by_depart_time_after(flights, depart_time_after)
         if is_round_trip and return_time_after is not None:
@@ -184,7 +192,6 @@ def search():
             cheapest_price = flights[0]["price"]
             price_rank = _get_price_rank_safe(origin, destination, cheapest_price, is_round_trip)
 
-    # 傳入 lang 參數以精準渲染直達/轉機標籤
     flights = add_stop_label(flights, lang=lang)
     flights = [_enrich_flight(f, lang=lang) for f in flights]
 

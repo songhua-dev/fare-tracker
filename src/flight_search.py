@@ -14,6 +14,7 @@ from fli.models import (
     SeatType,
     SortBy,
     TripType,
+    MaxStops,
 )
 from fli.search import SearchFlights
 from src.csv_reader import get_valid_airport_codes
@@ -30,6 +31,24 @@ def _validate_airport_code(code: str) -> str:
     return code
 
 
+def _get_max_stops_value(direct_only: bool):
+    """
+    動態取得 MaxStops 中代表「直飛」與「不限」的設定值，避免版號差異導致 AttributeError。
+    """
+    if not direct_only:
+        return getattr(MaxStops, "ANY", None)
+
+    # 依序嘗試常見的直飛 Enum 屬性，若皆無則直接帶入 0
+    for attr in ["NON_STOP", "NONSTOP", "DIRECT", "ZERO"]:
+        if hasattr(MaxStops, attr):
+            return getattr(MaxStops, attr)
+    
+    try:
+        return MaxStops(0)
+    except Exception:
+        return 0
+
+
 def _search_with_retry(
     filters: FlightSearchFilters,
     top_n: int = 5,
@@ -38,11 +57,6 @@ def _search_with_retry(
     """
     包裝 SearchFlights().search()，遇到 HTTP 429（速率限制）時
     用指數退避（exponential backoff）重試，最多重試 max_retries 次。
-
-    top_n 預設降到 3（fli 原本預設 5）：來回票查詢時，fli 會平行
-    發出 top_n 個請求去查每個去程候選各自配哪些回程，數字越大同時
-    打向 Google 的請求越多，越容易觸發 429。降到 3 是犧牲一點來回
-    候選組合的豐富度，換取觸發限流的機率降低。
     """
     searcher = SearchFlights()
     for attempt in range(max_retries):
@@ -60,13 +74,6 @@ def _search_with_retry(
 
 
 def _get_airline_info(flight) -> tuple[str, str, bool]:
-    """
-    回傳 (airline_code, airline_name, is_mixed_airline)。
-
-    flight.primary_airline 在跨航司轉機時會是 None（Google 沒有單一
-    「主要航空公司」的概念），此時退回用第一段航班的航空公司代表，
-    並標記 is_mixed_airline=True 提醒使用者這趟涉及多家航空公司。
-    """
     if flight.primary_airline is not None:
         return flight.primary_airline.name, flight.primary_airline_name, False
 
@@ -75,7 +82,6 @@ def _get_airline_info(flight) -> tuple[str, str, bool]:
 
 
 def _flight_to_dict(flight) -> dict:
-    """單程航班：完整欄位，含 price。"""
     airline_code, airline_name, is_mixed_airline = _get_airline_info(flight)
     return {
         "airline_code": airline_code,
@@ -93,14 +99,6 @@ def _flight_to_dict(flight) -> dict:
 
 
 def _leg_to_dict(flight) -> dict:
-    """
-    來回票中的單一段（去程或回程）的細節。
-
-    刻意不含 price —— 來回票的 price 語意是「整組來回總價」，
-    只會放在 search_cheapest() 回傳的最外層，這裡的 leg 細節
-    只描述時間、轉機、航空公司這些跟金額無關的資訊，避免之後
-    有人誤把這裡的數字當成「單獨這一段的票價」來用。
-    """
     airline_code, airline_name, is_mixed_airline = _get_airline_info(flight)
     return {
         "airline_code": airline_code,
@@ -121,30 +119,10 @@ def search_cheapest(
     destination: str,
     depart_date: str,
     return_date: str | None = None,
+    direct_only: bool = False,
 ) -> list[dict]:
     """
     查詢航班，回傳統一格式的 dict list（已依價格由低到高排序）。
-
-    單程（return_date=None）：
-        每筆 dict 是一個完整航班，欄位見 _flight_to_dict()。
-
-    來回（有給 return_date）：
-        每筆 dict 是一組「去程+回程」配對，結構為：
-        {
-            "price": 這個組合的來回總價（float）,
-            "currency": 幣別（str）,
-            "flight_duration_min": 去程+回程的總飛行時間（分鐘）,
-            "stop_count": 去程+回程的總轉機次數,
-            "outbound": {...去程細節，不含 price，見 _leg_to_dict()...},
-            "return": {...回程細節，不含 price，見 _leg_to_dict()...},
-        }
-
-        來回總價的取法是官方邏輯：Google Flights 把整組來回的總價
-        放在「去程」那筆資料的 price 欄位上，回程那筆的 price 語意
-        不明確、容易誤導，因此完全不採用。
-
-    Raises:
-        ValueError: origin 或 destination 不是合法的機場代碼。
     """
     origin_code = _validate_airport_code(origin)
     destination_code = _validate_airport_code(destination)
@@ -153,6 +131,8 @@ def search_cheapest(
     destination_airport = Airport[destination_code]
 
     is_round_trip = return_date is not None
+
+    stops_filter = _get_max_stops_value(direct_only)
 
     if is_round_trip:
         flight_segments = [
@@ -183,6 +163,7 @@ def search_cheapest(
         passenger_info=PassengerInfo(adults=adults),
         flight_segments=flight_segments,
         seat_type=SeatType.ECONOMY,
+        stops=stops_filter,
         sort_by=SortBy.CHEAPEST,
     )
 
@@ -193,8 +174,6 @@ def search_cheapest(
     if is_round_trip:
         for outbound, return_flight in results:
             if outbound.price is None:
-                # Google 沒有給出這個組合的價格（常見於商務艙+多人數搜尋
-                # 等情境），跳過這筆，不要存一個誤導性的 price=None 進資料庫
                 continue
             output.append(
                 {

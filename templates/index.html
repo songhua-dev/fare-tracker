@@ -68,10 +68,16 @@
             </div>
         </div>
 
-        <div class="field-row">
+        <div class="field-row" style="align-items: center; gap: 24px;">
             <div class="field" style="max-width: 140px;">
                 <label for="adults">{{ _('label_adults') }}</label>
                 <input name="adults" id="adults" type="number" value="1" min="1">
+            </div>
+            <div class="field" style="margin-top: 24px;">
+                <label for="direct_only" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                    <input type="checkbox" id="direct_only" name="direct_only" value="1" {% if request.form.get('direct_only') == '1' %}checked{% endif %} style="width: auto; cursor: pointer;">
+                    <span>{{ _('label_direct_only') }}</span>
+                </label>
             </div>
         </div>
 

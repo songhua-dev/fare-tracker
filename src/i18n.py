@@ -52,7 +52,8 @@ class I18nManager:
                 "tag_outbound": "去程",
                 "tag_return": "回程",
                 "depart_time_format": "出發時間：{time}",
-                "price_rank_badge": "歷史價格前 {rank} 低 (共 {total} 筆紀錄)"
+                "price_rank_badge": "歷史價格前 {rank} 低 (共 {total} 筆紀錄)",
+                "label_direct_only": "僅限直飛航班",
             },
             "en_US": {
                 "site_title": "Flight Comparison & Price History Tracker",
@@ -92,7 +93,8 @@ class I18nManager:
                 "tag_outbound": "Outbound",
                 "tag_return": "Return",
                 "depart_time_format": "Departure: {time}",
-                "price_rank_badge": "Rank #{rank} lowest in history ({total} records total)"
+                "price_rank_badge": "Rank #{rank} lowest in history ({total} records total)",
+                "label_direct_only": "Direct flights only",
             }
         }
         self.translations.update(self._builtin_translations)
