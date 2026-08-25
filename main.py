@@ -169,6 +169,7 @@ def search():
             depart_date=depart_date,
             return_date=return_date,
             direct_only=direct_only,
+            lang=lang,
         )
     except ValueError as e:
         return render_template("index.html", flights=None, error=str(e), disclaimer=get_text("disclaimer", lang=lang))

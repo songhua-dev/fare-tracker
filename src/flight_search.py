@@ -23,11 +23,11 @@ from src.i18n import _
 VALID_AIRPORT_CODES = get_valid_airport_codes()
 
 
-def _validate_airport_code(code: str) -> str:
+def _validate_airport_code(code: str, lang: str = "zh_TW") -> str:
     """檢查機場代碼是否存在於 fli 支援的清單裡，不合法就丟出清楚的錯誤訊息。"""
     code = code.upper()
     if code not in VALID_AIRPORT_CODES:
-        raise ValueError(_("invalid_airport_code", code=code))
+        raise ValueError(_("invalid_airport_code", lang=lang, code=code))
     return code
 
 
@@ -120,15 +120,13 @@ def search_cheapest(
     depart_date: str,
     return_date: str | None = None,
     direct_only: bool = False,
+    lang: str = "zh_TW",
 ) -> list[dict]:
     """
     查詢航班，回傳統一格式的 dict list（已依價格由低到高排序）。
     """
-    origin_code = _validate_airport_code(origin)
-    destination_code = _validate_airport_code(destination)
-
-    origin_airport = Airport[origin_code]
-    destination_airport = Airport[destination_code]
+    origin_code = _validate_airport_code(origin, lang=lang)
+    destination_code = _validate_airport_code(destination, lang=lang)
 
     is_round_trip = return_date is not None
 
