@@ -37,6 +37,7 @@ This project uses [`fli`](https://pypi.org/project/flights/), an open-source, re
 - **Database**: PostgreSQL via [Neon](https://neon.tech) (serverless Postgres, free tier)
 - **Flight data**: [`fli`](https://pypi.org/project/flights/)
 - **Frontend**: server-rendered HTML (Jinja2 templates)
+- **Containerization**: Docker (optional — see [Setup Guide](#8-選用改用-docker-執行))
 
 ## Project Structure
 
@@ -166,6 +167,27 @@ http://127.0.0.1:5000
 ```
 
 就可以開始查詢了。
+
+### 8B. （選用）改用 Docker 執行
+
+如果你不想在本機安裝 Python 環境（或想確保跟原開發環境完全一致），也可以跳過步驟 1、4、5，改用 Docker 建置並執行：
+
+```
+docker build -t fare-tracker .
+docker run -p 5000:5000 --env-file .env fare-tracker
+```
+
+打開瀏覽器前往 `http://localhost:5000` 即可使用，功能跟直接執行 `python main.py` 完全相同。
+
+**注意**：`.env` 檔案格式需符合 Docker `--env-file` 的規則——`=` 兩邊不能有空格，值不需要（也不應該）用引號包起來，例如：
+
+```
+NEON_URL=postgresql://user:password@ep-xxxx.region.aws.neon.tech/dbname?sslmode=require
+```
+
+（這個格式一般執行 `python main.py` 時也照樣能正常讀取，不影響本機開發。）
+
+`.env` 本身已被 `.dockerignore` 排除，不會被打包進 image 裡；`--env-file` 只在容器啟動的當下讀取它的內容注入為環境變數。
 
 ---
 
