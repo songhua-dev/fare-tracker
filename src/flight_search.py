@@ -135,13 +135,13 @@ def search_cheapest(
     if is_round_trip:
         flight_segments = [
             FlightSegment(
-                departure_airport=[[origin_airport, 0]],
-                arrival_airport=[[destination_airport, 0]],
+                departure_airport=[[Airport[origin_code], 0]],
+                arrival_airport=[[Airport[destination_code], 0]],
                 travel_date=depart_date,
             ),
             FlightSegment(
-                departure_airport=[[destination_airport, 0]],
-                arrival_airport=[[origin_airport, 0]],
+                departure_airport=[[Airport[destination_code], 0]],
+                arrival_airport=[[Airport[origin_code], 0]],
                 travel_date=return_date,
             ),
         ]
@@ -149,8 +149,8 @@ def search_cheapest(
     else:
         flight_segments = [
             FlightSegment(
-                departure_airport=[[origin_airport, 0]],
-                arrival_airport=[[destination_airport, 0]],
+                departure_airport=[[Airport[origin_code], 0]],
+                arrival_airport=[[Airport[destination_code], 0]],
                 travel_date=depart_date,
             )
         ]
