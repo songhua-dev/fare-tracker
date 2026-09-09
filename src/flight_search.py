@@ -49,24 +49,19 @@ def _get_max_stops_value(direct_only: bool):
         return 0
 
 
-def _search_with_retry(
-    filters: FlightSearchFilters,
-    top_n: int = 5,
-    max_retries: int = 3,
-) -> list:
-    """
-    包裝 SearchFlights().search()，遇到 HTTP 429（速率限制）時
-    用指數退避（exponential backoff）重試，最多重試 max_retries 次。
-    """
+def _search_with_retry(filters, top_n=5, max_retries=3):
     searcher = SearchFlights()
     for attempt in range(max_retries):
         try:
-            return searcher.search(filters, top_n=top_n) or []
+            results = searcher.search(filters, top_n=top_n) or []
+            print(f"[DEBUG] fli 回傳筆數: {len(results)}", flush=True)  # 加這行
+            return results
         except Exception as e:
+            print(f"[DEBUG] fli 例外: {repr(e)}", flush=True)  # 加這行
             is_rate_limited = "429" in str(e)
             is_last_attempt = attempt == max_retries - 1
             if is_rate_limited and not is_last_attempt:
-                wait_seconds = 2**attempt  # 1秒 → 2秒 → 4秒
+                wait_seconds = 2**attempt
                 time.sleep(wait_seconds)
                 continue
             raise
